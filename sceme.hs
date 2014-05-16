@@ -114,7 +114,7 @@ parseFloat = do y <- many1 (digit <|> oneOf ".eE")
                 return . Number . F $ z
 
 parseNumber :: Parser LispVal
-parseNumber = (try parseDec) <|> (try parseFloat) <|> (try parseHex) <|> (try parseOctal) <|> (try parseBinary) -- <|> (try parseFloat)
+parseNumber = (try parseDec) <|> (try parseFloat) <|> (try parseHex) <|> (try parseOctal) <|> (try parseBinary)
 
 parseString :: Parser LispVal
 parseString = do char '"'
@@ -153,11 +153,36 @@ unpackNum (String n) = readN n
 unpackNum (List [n]) = unpackNum n
 unpackNum _ = I 0
 
+plus :: N -> N -> N
+plus (I a) (F b) = F $ fromIntegral a + b
+plus (F a) (I b) = F $ a + fromIntegral b
+plus (I a) (I b) = I $ a + b
+plus (F a) (F b) = F $ a + b
+
+sub :: N -> N -> N
+sub (I a) (F b) = F $ fromIntegral a - b
+sub (F a) (I b) = F $ a - fromIntegral b
+sub (I a) (I b) = I $ a - b
+sub (F a) (F b) = F $ a - b
+
+mult :: N -> N -> N
+mult (I a) (F b) = F $ fromIntegral a * b
+mult (F a) (I b) = F $ a * fromIntegral b
+mult (I a) (I b) = I $ a * b
+mult (F a) (F b) = F $ a * b
+
+divide :: N -> N -> N
+divide (I a) (F b) = F $ (fromIntegral a) `div` b
+divide (F a) (I b) = F $ a `div` (fromIntegral b)
+divide (I a) (I b) = I $ a `div` b
+divide (F a) (F b) = F $ a `div` b
+
+
 primitives :: [(String, [LispVal] -> LispVal)]
-primitives = [("+", numericBinop (+)),
-              ("-", numericBinop (-)),
-              ("*", numericBinop (*)),
-              ("/", numericBinop div),
+primitives = [("+", numericBinop plus),
+              ("-", numericBinop sub),
+              ("*", numericBinop mult),
+              ("/", numericBinop divide),
               ("mod", numericBinop mod),
               ("quotient", numericBinop quot),
               ("remainder", numericBinop rem)]
