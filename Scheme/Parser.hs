@@ -32,7 +32,7 @@ parseAtom = do first <- letter <|> symbol
 parseBool :: Parser LispVal
 parseBool = do f <- char '#'
                l <- oneOf "tf"
-               let b = f : l
+               let b = f : [l]
                return $ case b of
                          "#t" -> Bool True
                          "#f" -> Bool False
