@@ -17,7 +17,7 @@ readPrompt prompt = flushStr prompt >> getLine
 evalString :: Env -> String -> IO String
 evalString env expr = runIOThrows $ liftM show $ do
     val <- (liftThrows $ readExpr expr)
-    trace ("parsed as expr: " ++ displayVal val) $ eval env val
+    eval env val
 
 evalAndPrint :: Env -> String -> IO ()
 evalAndPrint env expr = evalString env expr >>= putStrLn

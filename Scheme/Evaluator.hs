@@ -3,7 +3,7 @@ module Scheme.Evaluator where
 import Control.Monad
 import Control.Monad.Error
 import Data.IORef
-import Debug.Trace
+--import Debug.Trace
 import Numeric
 import System.Environment
 import System.IO
@@ -192,10 +192,9 @@ readAll [String filename] = liftM List $ load filename
 
 
 apply :: LispVal -> [LispVal] -> IOThrowsError LispVal
-apply (PrimitiveFunc func) args = trace ("    primitivefunc " ++ show args) $  liftThrows $ func args
+apply (PrimitiveFunc func) args = liftThrows $ func args
 --apply (IOFunc func) args = trace ("    iofunc " ++ show args) $ func args
-apply (Func params varargs body closure) args = trace ("    func " ++ show args) $
-        if num params /= num args && varargs == Nothing
+apply (Func params varargs body closure) args = if num params /= num args && varargs == Nothing
             then throwError $ NumArgs (num params) args
             else (liftIO $ bindVars closure $ zip params args) >>= bindVarArgs varargs >>= evalBody
         where remainingArgs = drop (length params) args
@@ -218,26 +217,23 @@ eval env (List [Atom "if", pred, conseq, alt]) = do result <- eval env pred
 eval env (List [Atom "set!", Atom var, form]) =
         eval env form >>= setVar env var
 eval env (List [Atom "define", Atom var, form]) =
-        trace ("[define:" ++ show var ++ ": " ++ show form ++ "]") $
         eval env form >>= defineVar env var
 eval env (List (Atom "define" : List (Atom var : params) : body)) =
         makeNormalFunc env params body >>= defineVar env var
 eval env (List (Atom "define" : DottedList (Atom var : params) varargs : body)) =
         makeVarargs varargs env params body >>= defineVar env var
 eval env (List (Atom "lambda" : List params : body)) =
-        trace ("[lambda:" ++ show params ++ ": " ++ show body ++ "]") $
         makeNormalFunc env params body
 eval env (List (Atom "lambda" : DottedList params varargs : body)) =
-        trace ("[lambda:" ++ show params ++ ": " ++ show varargs ++ ": " ++ show body ++ "]") $
         makeVarargs varargs env [] body
 eval env (List (Atom "lambda" : varargs@(Atom _) : body)) =
         makeVarargs varargs env [] body
 eval env (List [Atom "load", String filename]) =
     load filename >>= liftM last . mapM (eval env)
-eval env (List (function : args)) = trace (show function ++ ": ") $ do
+eval env (List (function : args)) = do
         func <- eval env function
         argVals <- mapM (eval env) args
-        trace ( "  " ++ show argVals ) $ apply func argVals
+        apply func argVals
 eval env badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 {- Variables and functions -}

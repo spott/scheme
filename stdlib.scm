@@ -7,7 +7,7 @@
 
 (define (flip func)        (lambda (arg1 arg2) (func arg2 arg1)))
 
-(define (curry func arg1)  (lambda (arg) (apply func (cons arg1 arg))))
+(define (curry func arg1)  (lambda (arg) (apply func arg1 arg)))
 (define (compose f g)      (lambda (arg) (f (apply g arg))))
 
 (define zero?              (curry = 0))
