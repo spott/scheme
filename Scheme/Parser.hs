@@ -1,6 +1,5 @@
-module Scheme.Parser where
+module Scheme.Parser (readExpr, readExprList) where
 
-import System.Environment
 import Control.Monad
 import Control.Monad.Error
 import Numeric
@@ -8,10 +7,14 @@ import Text.ParserCombinators.Parsec hiding (spaces)
 
 import Scheme.Types
 
-readExpr :: String -> ThrowsError LispVal
-readExpr s = case parse parseExpr "lisp" s of
+readExpr = readOrThrow parseExpr
+
+readExprList = readOrThrow (endBy parseExpr spaces)
+
+readOrThrow :: Parser a -> String -> ThrowsError a
+readOrThrow parser input = case parse parser "lisp" input of
     Left err -> throwError $ Parser err
-    Right val -> return val
+    Right val ->  return val
 
 {- Parser -}
 symbol :: Parser Char
@@ -23,11 +26,16 @@ spaces = skipMany1 space
 parseAtom :: Parser LispVal
 parseAtom = do first <- letter <|> symbol
                rest <- many (letter <|> digit <|> symbol)
-               let atom = [first] ++ rest
-               return $ case atom of 
-                          "#t" -> Bool True
-                          "#f" -> Bool False
-                          otherwise -> Atom atom
+               let atom = first : rest
+               return $ Atom atom
+
+parseBool :: Parser LispVal
+parseBool = do f <- char '#'
+               l <- oneOf "tf"
+               let b = f : l
+               return $ case b of
+                         "#t" -> Bool True
+                         "#f" -> Bool False
 
 parseList :: Parser LispVal
 parseList = liftM List $ sepBy parseExpr spaces
@@ -44,13 +52,11 @@ parseDottedList = do
 base :: Integer -> [Integer]
 base n = map (\x -> n^x) [0,1..]
 
-digits :: [Char] -> [Integer]
+digits :: String -> [Integer]
 digits = map (\x -> read [x])
 
-
-
 readBinary :: String -> Integer
-readBinary s = foldl1 (+) $ map ( \(x,y) -> x * y ) (zip (digits . reverse $ s) (base 2))
+readBinary s = sum $ zipWith (*) (digits . reverse $ s) (base 2)
 
 parseOctal :: Parser LispVal
 parseOctal = do string "#o"
@@ -83,12 +89,19 @@ parseFloat = do y <- many1 (digit <|> oneOf ".eE")
                 return . Number . F $ z
 
 parseNumber :: Parser LispVal
-parseNumber = (try parseDec) <|> (try parseFloat) <|> (try parseHex) <|> (try parseOctal) <|> (try parseBinary)
+parseNumber = try parseDec <|> try parseFloat <|> try parseHex <|> try parseOctal <|> try parseBinary
+
+parseCharacter :: Parser LispVal
+parseCharacter = do char '\''
+                    y <- anyChar
+                    char '\''
+                    return $ Character y
 
 parseString :: Parser LispVal
 parseString = do char '"'
                  x <- manyTill anyChar (try ( string "\"" ))
                  return $ String x
+
 
 parseQuoted :: Parser LispVal
 parseQuoted = do
@@ -97,12 +110,14 @@ parseQuoted = do
     return $ List [Atom "quote", x]
 
 parseExpr :: Parser LispVal
-parseExpr = parseAtom
+parseExpr = parseNumber
+        <|> parseBool
         <|> parseString
-        <|> parseNumber
+        <|> parseAtom
         <|> parseQuoted
+        <|> parseCharacter
         <|> do char '('
-               x <- (try parseList) <|> parseDottedList
+               x <- try parseList <|> parseDottedList
                char ')'
                return x
 
